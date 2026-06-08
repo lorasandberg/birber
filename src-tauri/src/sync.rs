@@ -8,30 +8,26 @@ use tauri::State;
 
 use crate::db_schema::with_db;
 use crate::metatable::MetaData;
-use crate::photo_file_manager::PhotoMetadata;
-use crate::{photo_file_manager, SharedDbState};
+use crate::photo_file_manager::{create_all_missing_thumbnails, create_thumbnail, PhotoMetadata};
+use crate::{entities, photo_file_manager, SharedDbState};
 // Gets all photo files in the file system and updates DB to match them.
 // In practice, check all RAW file names, take a note of all files that are not in DB and add them.
 // TODO: Figure out what to do with the JPG files that have no RAW.
 // Do we rely on the camera naming policy to identify photos?
 
 #[tauri::command]
-pub async fn sync_all(state: State<'_, SharedDbState>) -> Result<PhotoMap, String> {
-    // let last_sync: String = get_meta_row("last_sync", "0")
-    //     .await
-    //     .map_err(|e| e.to_string())?;
-    // let last_sync: u64 = last_sync.parse::<u64>().map_err(|e| e.to_string())?;
+pub async fn sync_all(
+    state: State<'_, SharedDbState>,
+    app_handle: tauri::AppHandle,
+) -> Result<PhotoMap, String> {
     let last_sync = MetaData::get("last_sync", "0", &state)?;
     let last_sync = last_sync
         .parse::<u64>()
         .expect("Failed to parse last sync.");
 
-    println!("{}", last_sync);
-    let last_sync = 0;
-
     let photo_map = file_names_to_photo_map(last_sync);
 
-    insert_photomap_to_db(&photo_map, &state)?;
+    insert_photomap_to_db(&photo_map, &state, &app_handle).await?;
 
     let current_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -42,9 +38,10 @@ pub async fn sync_all(state: State<'_, SharedDbState>) -> Result<PhotoMap, Strin
     Ok(photo_map)
 }
 
-fn insert_photomap_to_db(
+async fn insert_photomap_to_db(
     map: &HashMap<String, PhotoGroup>,
     state: &State<'_, SharedDbState>,
+    app_handle: &tauri::AppHandle,
 ) -> Result<(), String> {
     let mut count = 20;
 
@@ -87,6 +84,8 @@ fn insert_photomap_to_db(
             // break;
         }
     }
+
+    create_all_missing_thumbnails((*state).clone(), (*app_handle).clone()).await?;
 
     Ok(())
 }
@@ -176,6 +175,11 @@ fn list_unique_files_in_dir(
     file_names: &mut Vec<String>,
     last_sync: u64,
 ) -> Result<(), String> {
+    // Check folder name to ignore specific folders.
+    if dir.file_name().unwrap() == "_birber" {
+        return Ok(());
+    }
+
     // Get folder Last modified date.
     let metadata =
         fs::metadata(&dir).map_err(|e| format!("Failed to read folder metadata: {}", e))?;
