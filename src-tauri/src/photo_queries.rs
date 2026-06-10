@@ -2,13 +2,11 @@ use rusqlite::named_params;
 use tauri::State;
 
 use crate::{
-    db_schema::{db_get_row, db_get_rows, db_insert_row, with_db},
+    db_schema::{db_get_row, db_get_rows, db_insert_row},
     entities::{
-        photo_record::PhotoRecord,
-        pipeline_parameters::{PipelineOutFile, PipelineParameters},
-        raw_record::RawRecord,
+        photo_record::PhotoRecord, pipeline_parameters::PipelineParameters, raw_record::RawRecord,
     },
-    get_preview_folder, SharedDbState,
+    SharedDbState,
 };
 
 #[tauri::command]
@@ -48,24 +46,6 @@ pub fn get_raw_by_cam_id(
     state: State<'_, SharedDbState>,
 ) -> Result<RawRecord, String> {
     RawRecord::from_cam_id(cam_id, &state)
-}
-
-pub fn get_all_raws(state: State<'_, SharedDbState>) -> Result<Vec<RawRecord>, String> {
-    Ok(Vec::new())
-
-    // let result: Result<Vec<RawRecord>, rusqlite::Error> = with_db(&state, |conn| {
-    //     let mut q = conn.prepare("SELECT * FROM raws")?;
-
-    //     let mut rows = q.query([])?;
-    //     let mut results = Vec::new();
-
-    //     while let Some(row) = rows.next()? {
-    //         results.push(RawRecord::from_row(&row)?);
-    //     }
-    //     Ok(results)
-    // });
-
-    // result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

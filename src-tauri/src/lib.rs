@@ -3,8 +3,6 @@ use std::fs;
 use tauri::Manager;
 use tauri::PhysicalPosition;
 
-use crate::entities::photo_record::PhotoRecord;
-
 mod db_schema;
 pub mod entities;
 mod metatable;
@@ -42,7 +40,6 @@ pub fn run() {
             photo_queries::get_photos_by_date,
             photo_queries::get_raw_by_cam_id,
             photo_file_manager::trigger_create_thumbnail,
-            photo_file_manager::create_all_missing_thumbnails,
             photo_queries::create_new_photo,
             photo_queries::throw_out_raw,
             photo_queries::get_bin_status,
@@ -54,15 +51,15 @@ pub fn run() {
             Ok(())
         })
         .setup(|_app| {
-            create_helper_folders();
+            create_helper_folders()?;
             Ok(())
         })
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
-                if let (Ok(availableMonitors), Ok(Some(current_monitor))) =
+                if let (Ok(available_monitors), Ok(Some(current_monitor))) =
                     (window.available_monitors(), window.current_monitor())
                 {
-                    let secondary = availableMonitors
+                    let secondary = available_monitors
                         .iter()
                         .find(|m| m.name() != current_monitor.name());
 
@@ -75,7 +72,7 @@ pub fn run() {
                     }
                 }
 
-                window.show();
+                window.show()?;
                 // window.maximize();
                 // window.minimize().unwrap();
                 // window.show().unwrap();

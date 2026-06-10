@@ -8,12 +8,9 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::{
-    db_schema::{db_execute, db_get_row, db_get_rows, db_get_value},
+    db_schema::{db_get_row, db_get_rows},
     entities::pipeline_parameters::PipelineParameters,
-    get_preview_folder, get_thumbnail_folder,
-    photo_file_manager::{self, PhotoMetadata},
-    sync::PhotoGroup,
-    SharedDbState,
+    get_preview_folder, get_thumbnail_folder, SharedDbState,
 };
 
 #[derive(Serialize)]
@@ -164,7 +161,7 @@ impl RawRecord {
     // Otherwise render a thumbnail using the RAW file (heavy).
     pub async fn create_thumbnail(&self, app_handle: &tauri::AppHandle) -> Result<(), String> {
         match &self.jpg_path {
-            Some(path) => self.create_thumbnail_from_jpg(app_handle).await,
+            Some(_) => self.create_thumbnail_from_jpg().await,
             None => self.create_thumbnail_from_raw(app_handle).await,
         }
     }
@@ -183,10 +180,7 @@ impl RawRecord {
         Ok(())
     }
 
-    pub async fn create_thumbnail_from_jpg(
-        &self,
-        app_handle: &tauri::AppHandle,
-    ) -> Result<(), String> {
+    pub async fn create_thumbnail_from_jpg(&self) -> Result<(), String> {
         crate::photo_file_manager::create_thumbnail_from_jpg(
             self.jpg_path.as_ref().unwrap(),
             &self.get_thumbnail_path(),

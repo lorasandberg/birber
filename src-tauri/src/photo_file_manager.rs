@@ -1,10 +1,8 @@
 // Manage file saving, removing, reading, metadata functionality.
 
 use std::{
-    clone,
-    fs::{self, File},
+    fs::File,
     io::{BufReader, BufWriter},
-    path::{Path, PathBuf},
 };
 
 use crate::entities::{
@@ -12,15 +10,9 @@ use crate::entities::{
     raw_record::RawRecord,
 };
 use exif::{In, Reader, Tag, Value};
-use image::{codecs::jpeg, ImageReader};
 use tauri::State;
-use tokio::runtime;
-use trpl::join_all;
 
-use crate::{
-    photo_queries::{get_all_raws, get_raw_by_cam_id},
-    SharedDbState,
-};
+use crate::{photo_queries::get_raw_by_cam_id, SharedDbState};
 
 #[derive(Debug)]
 pub struct PhotoMetadata {
@@ -59,37 +51,6 @@ pub async fn trigger_create_thumbnail(
     let record: RawRecord = get_raw_by_cam_id(cam_id, state)?;
 
     create_thumbnail(&record, &app_handle).await
-}
-
-// Create thumbnails for all raws that don't have one.
-// Can take long.
-#[tauri::command]
-pub async fn create_all_missing_thumbnails(
-    state: State<'_, SharedDbState>,
-    app_handle: tauri::AppHandle,
-) -> Result<(), String> {
-    let raws = get_all_raws(state)?;
-    let mut tasks = Vec::new();
-
-    for raw in raws {
-        if !raw.has_thumbnail_file()? {
-            let app_handle_clone = app_handle.clone();
-
-            // Run mass operations in async threads.
-            let task = tokio::spawn(async move { create_thumbnail(&raw, &app_handle_clone).await });
-            tasks.push(task);
-        }
-    }
-
-    let results = join_all(tasks).await;
-
-    for res in results {
-        if let Err(e) = res {
-            eprintln!("Thumbnail thread worker panicked: {:?}", e);
-        }
-    }
-
-    Ok(())
 }
 
 pub async fn create_thumbnail(

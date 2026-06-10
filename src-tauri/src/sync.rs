@@ -7,11 +7,11 @@ use std::time::SystemTime;
 use std::{collections::HashMap, time::UNIX_EPOCH};
 use tauri::State;
 
-use crate::db_schema::{db_execute, with_db};
+use crate::db_schema::db_execute;
 use crate::entities::raw_record::RawRecord;
 use crate::metatable::MetaData;
-use crate::photo_file_manager::{create_all_missing_thumbnails, create_thumbnail, PhotoMetadata};
-use crate::{entities, photo_file_manager, SharedDbState};
+use crate::photo_file_manager::PhotoMetadata;
+use crate::{photo_file_manager, SharedDbState};
 // Gets all photo files in the file system and updates DB to match them.
 // In practice, check all RAW file names, take a note of all files that are not in DB and add them.
 // TODO: Figure out what to do with the JPG files that have no RAW.
@@ -120,14 +120,6 @@ impl RawRecord {
         Ok(())
     }
 }
-// let result = with_db(state, |conn| {
-//     conn.execute("INSERT INTO meta (id, value) values(?1, ?2) ON CONFLICT(id) DO UPDATE SET value = excluded.value;", [&id, &value])
-// });
-
-// match result {
-//     Ok(_) => Ok(()),
-//     Err(other_error) => Err(other_error.to_string()),
-// }
 
 #[derive(Serialize)]
 pub struct PhotoGroup {
@@ -222,7 +214,7 @@ fn list_unique_files_in_dir(
         .map_err(|e| e.to_string())?
         .as_millis() as u64;
 
-    if (modified_time < last_sync) {
+    if modified_time < last_sync {
         println!("No changes in folder {}", dir.to_str().unwrap());
         return Ok(());
     }
@@ -245,25 +237,11 @@ fn list_unique_files_in_dir(
     Ok(())
 }
 
-struct AdvancedPhotoParams {
-    pub iso_speed: String,
-    pub camera_model: String,
-    pub fstop: String,
-    pub exposure_time: String,
-    pub exposure_bias: String,
-    pub exposure_program: String,
-}
-
-struct PhotoRecord {
-    pub id: String,
-    pub raw_path: String,
-    pub jpg_path: String,
-    pub date_taken: String,
-    pub adv_params: AdvancedPhotoParams,
-}
-
-fn read_file(path: String) -> Result<Vec<String>, String> {
-    let result = Vec::new();
-
-    Ok(result)
-}
+// struct AdvancedPhotoParams {
+//     pub iso_speed: String,
+//     pub camera_model: String,
+//     pub fstop: String,
+//     pub exposure_time: String,
+//     pub exposure_bias: String,
+//     pub exposure_program: String,
+// }

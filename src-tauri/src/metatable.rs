@@ -5,10 +5,7 @@ use tauri::State;
 
 use crate::{db_schema::with_db, SharedDbState};
 
-pub struct MetaData {
-    pub id: String,
-    pub value: String,
-}
+pub struct MetaData {}
 
 impl MetaData {
     // Get meta field by key.

@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use rusqlite::{named_params, Connection, Row};
+use rusqlite::named_params;
 use serde::Serialize;
 use tauri::State;
 
 use crate::{
-    db_schema::{db_execute, db_get_row, db_get_rows, db_insert_row, with_db},
-    entities::{
-        pipeline_parameters::{PipelineOutFile, PipelineParameters},
-        raw_record::RawRecord,
-    },
+    db_schema::{db_execute, db_get_row, db_get_rows, db_insert_row},
+    entities::{pipeline_parameters::PipelineParameters, raw_record::RawRecord},
     get_preview_folder, get_thumbnail_folder,
     photo_file_manager::create_thumbnail_from_jpg,
     SharedDbState,
