@@ -139,7 +139,6 @@ pub fn db_get_row(
     params: &[(&str, &dyn rusqlite::ToSql)],
     state: &State<'_, SharedDbState>,
 ) -> Result<HashMap<String, String>, String> {
-    println!("SQL: {}", sql);
     let result = db_get_rows(sql, params, state)?;
 
     if result.len() != 1 {

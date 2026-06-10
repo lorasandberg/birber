@@ -1,10 +1,10 @@
-import { RawRecord } from "#components/RawItem";
 import { Button } from "#components/ui/button";
 import { Item } from "#components/ui/item";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { ArrowLeft, ArrowRight, Trash } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
+import { RawRecord } from "../entities/RawRecord";
 import { useStacks } from "../StackManager";
 import PhotoView from "./PhotoView";
 
@@ -22,7 +22,6 @@ export default function RawView({
   const [loadCounter, setLoadCounter] = useState<number>(0);
 
   const [inTrash, setInTrash] = useState<boolean>(false);
-  const [openEditor, setOpenEditor] = useState<boolean>(false);
 
   const getBinStatus = async () => {
     const result = JSON.parse(await invoke("get_bin_status", { camId: id }));

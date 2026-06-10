@@ -1,7 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useRef, useState } from "react";
 import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
-import { RawRecord } from "./RawItem";
+import { RawRecord } from "../entities/RawRecord";
 import { Button } from "./ui/button";
 
 export default function RawCrop({ raw, done }: { raw: RawRecord; done: (values: { x: number; y: number; width: number; height: number }) => void }) {

@@ -1,11 +1,9 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Trash } from "lucide-react";
-import { RawRecord } from "../entities/RawRecord";
+import { PhotoRecord } from "../entities/PhotoRecord";
 import { Item } from "./ui/item";
 
-export default function RawItem({ raw, onClick }: { raw: RawRecord; onClick: () => void }) {
-  const thumbnail_path = `B:/Photos/_birber/thumbnails/${raw.cam_id}_thumbnail.jpg`;
-
+export default function PhotoItem({ photo, onClick }: { photo: PhotoRecord; onClick: () => void }) {
   const handleClick = () => {
     onClick();
   };
@@ -15,10 +13,10 @@ export default function RawItem({ raw, onClick }: { raw: RawRecord; onClick: () 
       style={{ maxWidth: "300px" }}
       variant={"outline"}
       asChild
-      className={"cursor-pointer relative " + (raw.in_trash && "border-5 border-red-400")}
+      className={"cursor-pointer relative " + (photo.in_trash && "border-5 border-red-400")}
     >
       <a onClick={handleClick}>
-        {raw.in_trash && (
+        {photo.in_trash && (
           <div className="absolute bg-red-600/80 rounded-full p-[6px] bottom-[19px] right-[21px]">
             <Trash
               size={14}
@@ -27,7 +25,7 @@ export default function RawItem({ raw, onClick }: { raw: RawRecord; onClick: () 
             />
           </div>
         )}
-        <img src={convertFileSrc(thumbnail_path)} style={{ maxWidth: "100%" }} />
+        <img src={convertFileSrc(photo.thumbnail)} style={{ maxWidth: "100%" }} />
       </a>
     </Item>
   );

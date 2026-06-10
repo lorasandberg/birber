@@ -1,4 +1,5 @@
 use regex::Regex;
+use rusqlite::named_params;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -6,7 +7,8 @@ use std::time::SystemTime;
 use std::{collections::HashMap, time::UNIX_EPOCH};
 use tauri::State;
 
-use crate::db_schema::with_db;
+use crate::db_schema::{db_execute, with_db};
+use crate::entities::raw_record::RawRecord;
 use crate::metatable::MetaData;
 use crate::photo_file_manager::{create_all_missing_thumbnails, create_thumbnail, PhotoMetadata};
 use crate::{entities, photo_file_manager, SharedDbState};
@@ -20,21 +22,39 @@ pub async fn sync_all(
     state: State<'_, SharedDbState>,
     app_handle: tauri::AppHandle,
 ) -> Result<PhotoMap, String> {
+    // Manage timestamps
     let last_sync = MetaData::get("last_sync", "0", &state)?;
     let last_sync = last_sync
         .parse::<u64>()
         .expect("Failed to parse last sync.");
-
-    let photo_map = file_names_to_photo_map(last_sync);
-
-    insert_photomap_to_db(&photo_map, &state, &app_handle).await?;
-
     let current_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time error")
         .as_millis() as u64;
-    MetaData::set("last_sync", &current_timestamp.to_string(), &state)?;
 
+    let time_between_syncs = current_timestamp - last_sync;
+    let days_since = time_between_syncs / (1000 * 60 * 60 * 24);
+    let hours_since = (time_between_syncs / (1000 * 60 * 60)) % 24;
+
+    // Read through source files, ignoring folders with Last modified time earlier that the previous sync.
+    // Get all DSC_X photos together, so JPG and NEF files of the same shots are counted together as one entry.
+    let photo_map = file_names_to_photo_map(last_sync);
+
+    println!(
+        "Syncing {} raws, previous sync {} days and {} hours ago.",
+        photo_map.len(),
+        days_since,
+        hours_since
+    );
+
+    // Go through the NEF/JPG pairs and insert them to DB.
+    // Also creates thumbnails, gets metadata for dates etc.
+    insert_photomap_to_db(&photo_map, &state, &app_handle).await?;
+
+    // Update the sync timestamp.
+    MetaData::set("last_sync", &(current_timestamp).to_string(), &state)?;
+
+    println!("Sync completed");
     Ok(photo_map)
 }
 
@@ -43,32 +63,10 @@ async fn insert_photomap_to_db(
     state: &State<'_, SharedDbState>,
     app_handle: &tauri::AppHandle,
 ) -> Result<(), String> {
-    let mut count = 20;
-
     for (id, group) in map {
         println!("id: {}, JPG: {}, NEF: {}", &id, &group.jpg, &group.raw);
-        let path = if group.jpg.is_empty() {
-            &group.raw
-        } else {
-            &group.jpg
-        };
-        let meta: PhotoMetadata = photo_file_manager::read_photo_metadata(path)?;
-        println!("{:#?}", &meta);
 
-        let date = meta.date_taken.unwrap_or_default();
-
-        let result = with_db(&state, |conn| {
-            conn.execute(
-                "INSERT INTO 
-            raws (cam_id, raw_path, jpg_path, date_taken) 
-            values(?1, ?2, ?3, ?4) ON CONFLICT(cam_id) 
-            DO UPDATE SET 
-            raw_path = excluded.raw_path, 
-            jpg_path = excluded.jpg_path,
-            date_taken = excluded.date_taken;",
-                [&id, &group.raw, &group.jpg, &date],
-            )
-        });
+        let result = RawRecord::sync_from_file(id, group, state, app_handle).await;
 
         match result {
             Ok(_) => {
@@ -78,18 +76,50 @@ async fn insert_photomap_to_db(
                 println!("Raw insert failed: {}", e.to_string());
             }
         }
-
-        count -= 1;
-        if count <= 0 {
-            // break;
-        }
     }
-
-    create_all_missing_thumbnails((*state).clone(), (*app_handle).clone()).await?;
 
     Ok(())
 }
 
+impl RawRecord {
+    /** After reading files from raw folders, sync files to DB (upsert). */
+    pub async fn sync_from_file(
+        cam_id: &str,
+        group: &PhotoGroup,
+        state: &State<'_, SharedDbState>,
+        app_handle: &tauri::AppHandle,
+    ) -> Result<(), String> {
+        // Get path to a valid file, no matter whether NEF or JPG
+        let path = if group.jpg.is_empty() {
+            &group.raw
+        } else {
+            &group.jpg
+        };
+
+        // Fetch metadata from the file.
+        let meta: PhotoMetadata = photo_file_manager::read_photo_metadata(path)?;
+        let date = meta.date_taken.unwrap_or_default();
+
+        let sql = "INSERT INTO 
+            raws (cam_id, raw_path, jpg_path, date_taken) 
+            values(:cam_id, :raw_path, :jpg_path, :date) ON CONFLICT(cam_id) 
+            DO UPDATE SET 
+            raw_path = excluded.raw_path, 
+            jpg_path = excluded.jpg_path,
+            date_taken = excluded.date_taken";
+
+        db_execute(
+            sql,
+            named_params! { ":cam_id": cam_id, ":raw_path": group.raw, ":jpg_path": group.jpg, ":date": date },
+            state,
+        )?;
+
+        let raw = RawRecord::from_cam_id(cam_id, state)?;
+        raw.create_thumbnail(app_handle).await?;
+
+        Ok(())
+    }
+}
 // let result = with_db(state, |conn| {
 //     conn.execute("INSERT INTO meta (id, value) values(?1, ?2) ON CONFLICT(id) DO UPDATE SET value = excluded.value;", [&id, &value])
 // });

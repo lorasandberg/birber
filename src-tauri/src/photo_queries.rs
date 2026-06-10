@@ -31,20 +31,15 @@ pub fn get_raws_by_date(
     date: &str,
     state: State<'_, SharedDbState>,
 ) -> Result<Vec<RawRecord>, String> {
-    let result: Result<Vec<RawRecord>, rusqlite::Error> = with_db(&state, |conn| {
-        let mut q =
-            conn.prepare("SELECT * FROM raws WHERE date_taken LIKE ?1 ORDER BY date_taken")?;
+    Ok(RawRecord::get_by_date(date, &state)?)
+}
 
-        let mut rows = q.query([format!("{}%", &date)])?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            results.push(RawRecord::from_row(&row)?);
-        }
-        Ok(results)
-    });
-
-    result.map_err(|e| e.to_string())
+#[tauri::command]
+pub fn get_photos_by_date(
+    date: &str,
+    state: State<'_, SharedDbState>,
+) -> Result<Vec<PhotoRecord>, String> {
+    Ok(PhotoRecord::get_by_date(date, &state)?)
 }
 
 #[tauri::command]
@@ -56,19 +51,21 @@ pub fn get_raw_by_cam_id(
 }
 
 pub fn get_all_raws(state: State<'_, SharedDbState>) -> Result<Vec<RawRecord>, String> {
-    let result: Result<Vec<RawRecord>, rusqlite::Error> = with_db(&state, |conn| {
-        let mut q = conn.prepare("SELECT * FROM raws")?;
+    Ok(Vec::new())
 
-        let mut rows = q.query([])?;
-        let mut results = Vec::new();
+    // let result: Result<Vec<RawRecord>, rusqlite::Error> = with_db(&state, |conn| {
+    //     let mut q = conn.prepare("SELECT * FROM raws")?;
 
-        while let Some(row) = rows.next()? {
-            results.push(RawRecord::from_row(&row)?);
-        }
-        Ok(results)
-    });
+    //     let mut rows = q.query([])?;
+    //     let mut results = Vec::new();
 
-    result.map_err(|e| e.to_string())
+    //     while let Some(row) = rows.next()? {
+    //         results.push(RawRecord::from_row(&row)?);
+    //     }
+    //     Ok(results)
+    // });
+
+    // result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -88,21 +85,10 @@ pub async fn create_new_photo(
 
     println!("Creating a photo");
     let record = PhotoRecord::create(cam_id, &pipeline_params, &state)?;
-
     record.render(app_handle).await?;
-
-    println!("Saving photo.");
     record.save(&state)?;
-
+    record.create_thumbnail().await?;
     println!("Done");
-    // record
-    //     .raw
-    //     .render(out_path, &pipeline_params, &app_handle)
-    //     .await?;
-
-    // record.file_path = Some(out_path.to_string());
-
-    // Record save
 
     Ok(record)
 }
@@ -127,4 +113,22 @@ pub fn get_bin_status(cam_id: String, state: State<'_, SharedDbState>) -> Result
     )?)
     .map_err(|e| e.to_string())?;
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_photo_by_id(id: i64, state: State<'_, SharedDbState>) -> Result<PhotoRecord, String> {
+    PhotoRecord::from_id(id, &state)
+}
+
+// Run various commands through React in Tauri.
+// Development use only.
+#[tauri::command]
+pub async fn tauri_testing_function(state: tauri::State<'_, SharedDbState>) -> Result<(), String> {
+    let photos = PhotoRecord::get_all(&state)?;
+
+    for photo in photos.iter() {
+        photo.create_thumbnail().await?;
+    }
+
+    Ok(())
 }

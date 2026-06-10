@@ -3,6 +3,8 @@ use std::fs;
 use tauri::Manager;
 use tauri::PhysicalPosition;
 
+use crate::entities::photo_record::PhotoRecord;
+
 mod db_schema;
 pub mod entities;
 mod metatable;
@@ -37,19 +39,16 @@ pub fn run() {
             sync::sync_all,
             photo_queries::get_dates_with_photos,
             photo_queries::get_raws_by_date,
+            photo_queries::get_photos_by_date,
             photo_queries::get_raw_by_cam_id,
             photo_file_manager::trigger_create_thumbnail,
             photo_file_manager::create_all_missing_thumbnails,
             photo_queries::create_new_photo,
             photo_queries::throw_out_raw,
-            photo_queries::get_bin_status
+            photo_queries::get_bin_status,
+            photo_queries::get_photo_by_id,
+            photo_queries::tauri_testing_function
         ])
-        .setup(|app| {
-            if let Ok(app_dir) = app.path().app_data_dir() {
-                println!("Here: {}", app_dir.display());
-            }
-            Ok(())
-        })
         .setup(move |_app| {
             db_schema::boot_server(shared_db_pool.clone());
             Ok(())
